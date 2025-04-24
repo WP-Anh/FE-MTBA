@@ -1,21 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/app/ui/components/buttons/Button";
 import Input from "@/app/ui/components/forms/Input";
+import { login } from "@/app/services/auth";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Hiển thị thông báo nếu vừa đăng ký thành công
+    if (searchParams.get("registered") === "true") {
+      setSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
+    }
+  }, [searchParams]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Login data:", formData);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      setIsLoading(true);
+      const response = await login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (response.success && response.data?.token) {
+        // Lưu token tùy theo lựa chọn "Ghi nhớ đăng nhập"
+        if (rememberMe) {
+          localStorage.setItem("token", response.data.token);
+        } else {
+          sessionStorage.setItem("token", response.data.token);
+        }
+
+        // Lưu thông tin user nếu cần
+        if (response.data.user) {
+          const userData = {
+            id: response.data.user.id,
+            name: response.data.user.name,
+            email: response.data.user.email,
+          };
+          if (rememberMe) {
+            localStorage.setItem("user", JSON.stringify(userData));
+          } else {
+            sessionStorage.setItem("user", JSON.stringify(userData));
+          }
+        }
+
+        // Chuyển hướng về trang chủ
+        router.push("/");
+      }
+    } catch (err: any) {
+      if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại sau.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -36,6 +93,24 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {error && (
+          <div
+            className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+            role="alert"
+          >
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div
+            className="bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded relative"
+            role="alert"
+          >
+            <span className="block sm:inline">{success}</span>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             <Input
@@ -47,6 +122,7 @@ export default function LoginPage() {
                 setFormData({ ...formData, email: e.target.value })
               }
               placeholder="example@email.com"
+              disabled={isLoading}
             />
             <Input
               label="Mật khẩu"
@@ -57,6 +133,7 @@ export default function LoginPage() {
                 setFormData({ ...formData, password: e.target.value })
               }
               placeholder="••••••••"
+              disabled={isLoading}
             />
           </div>
 
@@ -67,6 +144,9 @@ export default function LoginPage() {
                 name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={isLoading}
               />
               <label
                 htmlFor="remember-me"
@@ -86,8 +166,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Button type="submit" fullWidth>
-            Đăng nhập
+          <Button type="submit" fullWidth disabled={isLoading}>
+            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
           </Button>
         </form>
 
@@ -104,7 +184,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isLoading}>
               <Image
                 src="/google.svg"
                 alt="Google"
@@ -114,7 +194,7 @@ export default function LoginPage() {
               />
               Google
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isLoading}>
               <Image
                 src="/facebook.svg"
                 alt="Facebook"
