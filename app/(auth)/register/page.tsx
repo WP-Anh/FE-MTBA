@@ -3,21 +3,54 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import Button from "@/app/ui/components/buttons/Button";
 import Input from "@/app/ui/components/forms/Input";
+import { register } from "@/app/services/auth";
+import { AxiosError } from "axios";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
-    console.log("Register data:", formData);
+    setError(null);
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await register({
+        userName: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (response.success) {
+        // Chuyển hướng đến trang đăng nhập sau khi đăng ký thành công
+        router.push("/login?registered=true");
+      }
+    } catch (err: any) {
+      if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -38,6 +71,15 @@ export default function RegisterPage() {
           </p>
         </div>
 
+        {error && (
+          <div
+            className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+            role="alert"
+          >
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             <Input
@@ -49,6 +91,7 @@ export default function RegisterPage() {
                 setFormData({ ...formData, name: e.target.value })
               }
               placeholder="Nguyễn Văn A"
+              disabled={isLoading}
             />
             <Input
               label="Email"
@@ -59,6 +102,7 @@ export default function RegisterPage() {
                 setFormData({ ...formData, email: e.target.value })
               }
               placeholder="example@email.com"
+              disabled={isLoading}
             />
             <Input
               label="Mật khẩu"
@@ -69,6 +113,7 @@ export default function RegisterPage() {
                 setFormData({ ...formData, password: e.target.value })
               }
               placeholder="••••••••"
+              disabled={isLoading}
             />
             <Input
               label="Xác nhận mật khẩu"
@@ -79,6 +124,7 @@ export default function RegisterPage() {
                 setFormData({ ...formData, confirmPassword: e.target.value })
               }
               placeholder="••••••••"
+              disabled={isLoading}
             />
           </div>
 
@@ -89,6 +135,7 @@ export default function RegisterPage() {
               type="checkbox"
               required
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              disabled={isLoading}
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-gray-900">
               Tôi đồng ý với{" "}
@@ -108,8 +155,8 @@ export default function RegisterPage() {
             </label>
           </div>
 
-          <Button type="submit" fullWidth>
-            Đăng ký
+          <Button type="submit" fullWidth disabled={isLoading}>
+            {isLoading ? "Đang xử lý..." : "Đăng ký"}
           </Button>
         </form>
 
@@ -126,7 +173,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isLoading}>
               <Image
                 src="/google.svg"
                 alt="Google"
@@ -136,7 +183,7 @@ export default function RegisterPage() {
               />
               Google
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isLoading}>
               <Image
                 src="/facebook.svg"
                 alt="Facebook"
